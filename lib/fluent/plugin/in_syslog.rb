@@ -125,29 +125,29 @@ module Fluent
     def receive_data_parser(data)
       m = SYSLOG_REGEXP.match(data)
       unless m
-        log.debug "invalid syslog message: #{data.dump}"
+        log.warn "invalid syslog message: #{data.dump}"
         return
       end
       pri = m[1].to_i
       text = m[2]
 
-      time, record = @parser.parse(text)
-      unless time && record
-        log.warn "pattern not match: #{text.inspect}"
-        return
-      end
+      @parser.parse(text) { |time, record|
+        unless time && record
+          log.warn "pattern not match: #{text.inspect}"
+          return
+        end
 
-      emit(pri, time, record)
-
-    rescue
-      log.warn data.dump, :error=>$!.to_s
-      log.debug_backtrace
+        emit(pri, time, record)
+      }
+    rescue => e
+      log.error data.dump, :error => e.to_s
+      log.error_backtrace
     end
 
     def receive_data(data)
       m = SYSLOG_ALL_REGEXP.match(data)
       unless m
-        log.debug "invalid syslog message", :data=>data
+        log.warn "invalid syslog message", :data=>data
         return
       end
 
@@ -171,10 +171,9 @@ module Fluent
       time ||= Engine.now
 
       emit(pri, time, record)
-
-    rescue
-      log.warn data.dump, :error=>$!.to_s
-      log.debug_backtrace
+    rescue => e
+      log.error data.dump, :error => e.to_s
+      log.error_backtrace
     end
 
     private
